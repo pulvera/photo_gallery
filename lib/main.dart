@@ -1,105 +1,116 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp();
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Photo Gallery',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
       home: const MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({Key? key}) : super(key: key);
+  const MyHomePage();
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  List<String> imagePaths = [
-    'assets/image1.jpg',
-    'assets/image2.jpg',
-    'assets/image3.jpg',
-    'assets/image4.jpg',
-    'assets/image5.jpg',
-    'assets/image6.jpg',
-    'assets/image7.jpg',
-    'assets/image8.jpg',
-    'assets/image9.jpg',
-  ];
-
-  late int selectedImageIndex;
+  List<dynamic> posts = [];
 
   @override
   void initState() {
+    getPosts();
     super.initState();
-    selectedImageIndex = -1;
   }
 
-  void onImageTap(int index) {
-    setState(() {
-      selectedImageIndex = index;
-    });
-  }
+  Future<void> getPosts() async {
+    var url = Uri.parse("https://jsonplaceholder.typicode.com/photos");
+    try {
+      var response = await http.get(url);
 
-  void closeFullView() {
-    setState(() {
-      selectedImageIndex = -1;
-    });
+      if (response.statusCode == 200) {
+        setState(() {
+          posts = json.decode(response.body);
+        });
+      } else {
+        throw Exception('Failed to load posts');
+      }
+    } catch (error) {
+      print('Error: $error');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Photo Gallery"),
+        title: const Text('API 3x3'),
         backgroundColor: Colors.blue,
       ),
-      body: selectedImageIndex != -1
-          ? Center(
-        child: Image.asset(
-          imagePaths[selectedImageIndex],
-          fit: BoxFit.contain,
-        ),
-      )
+      body: posts.isEmpty
+          ? const Center(child: CircularProgressIndicator())
           : GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3, // Change to 3 for a 3x3 grid
           crossAxisSpacing: 8.0,
           mainAxisSpacing: 8.0,
         ),
-        itemCount: imagePaths.length,
+        itemCount: posts.length,
         itemBuilder: (context, index) {
-          return GestureDetector(
-            onTap: () => onImageTap(index),
-            child: Image.asset(
-              imagePaths[index],
-              fit: BoxFit.cover,
+          return GridTile(
+            child: Image.network(posts[index]["thumbnailUrl"]),
+            footer: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ImageViewPage(
+                      imageUrl: posts[index]["url"],
+                      title: posts[index]["title"],
+                    ),
+                  ),
+                );
+              },
+              child: GridTileBar(
+                backgroundColor: Colors.black45,
+                title: Text(posts[index]["title"]),
+              ),
             ),
           );
         },
       ),
-      floatingActionButton: selectedImageIndex != -1
-          ? FloatingActionButton(
-        onPressed: closeFullView,
-        child: Icon(Icons.close),
-      )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButtonAnimator: FloatingActionButtonAnimator.scaling,
+    );
+  }
+}
+
+class ImageViewPage extends StatelessWidget {
+  final String imageUrl;
+  final String title;
+
+  const ImageViewPage({required this.imageUrl, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: Colors.blue,
+      ),
+      body: Center(
+        child: Image.network(imageUrl),
+      ),
     );
   }
 }
